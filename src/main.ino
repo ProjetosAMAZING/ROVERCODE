@@ -24,7 +24,6 @@ uint8_t car_state;
 
 void setup() {
   Serial.begin(115200);
-while (!Serial);
 
 //
   pinMode(12,OUTPUT);
@@ -96,6 +95,7 @@ void loop(){
 
       else if((millis() - ttime_vel)>= 1000)
       {
+
         checkMessages(sent, velocidade);
         if(velocidade == 0 || (sent != 0 && sent !=1))
         {
