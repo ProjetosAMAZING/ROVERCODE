@@ -43,6 +43,7 @@ uint8_t checkInitVoltage(void)
 
 void kickDog(uint8_t st)
 {
+
   if(kickAvailable)
   {
     if(st == 1)
@@ -58,7 +59,7 @@ uint8_t PID(uint8_t &v)
 {
 
   Input = (analogRead(A0)*5.0/1024)*100/4.90;
-  Serial.print(Input);
+
   float error = v - Input;
 
   unsigned long now = millis();
@@ -112,12 +113,13 @@ void startCar(){
 
 uint8_t readVelocity()
 {
+
   return ((analogRead(A0)*5.0/1024)*100/4.90);
 }
 uint8_t waitToStop()
 {
 
-  if((analogRead(A0)*5.0/1014.0) <= 0.07)
+  if((analogRead(A0)*5.0/1024.0) <= 0.07)
     return 1;
   else
     return 0;
@@ -132,8 +134,12 @@ return 1;
 
 uint8_t isParked(void)
 {
-  if(readVelocity()<= 0.06)
+
+
+  if((analogRead(A0)*5.0/1024.0)<= 0.06)
+  {
   return 1;
+  }
   else
   return 0;
 }

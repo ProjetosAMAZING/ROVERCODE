@@ -97,6 +97,7 @@ writeRegister(RegPacketConfig2,AUTORXRESTART_ON |AES_OFF);
 
 uint8_t checkModule(void)
 {
+
   if(readRegister(RegIrqFlags1)&&MODEREADY != 0)
   return 1;
   else
@@ -356,7 +357,6 @@ void isr0(void){
 if(rf69_state == M_RX)
 {
   payload = 1;
- // Serial.println("HERE");
 }
 else if(rf69_state == M_TX)
 {
