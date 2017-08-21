@@ -94,6 +94,7 @@ void configModule(void)
 
 
 }
+
 void  resetPackets(){
         numb_packet_rcv = 0;
         numb_packet_sent = 0;
@@ -145,7 +146,10 @@ void readtoFifo()
 
                 Serial.print("packet rcv: ");
                 Serial.println(numb_packet_rcv);
-
+                if(numb_packet_rcv == 0)
+                {
+                        resetPackets();
+                }
                 velocityQueue.push((uint8_t)SPI.transfer(0));
                 carState.push((uint8_t)SPI.transfer(0));
 
@@ -154,16 +158,17 @@ void readtoFifo()
 }
 
 
-void readMessage(uint8_t & vel, uint8_t & carS)
+void readMessage(uint8_t & vel, uint8_t & carS, int &nprcv)
 {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
         {
                 digitalWrite(8, LOW);
                 SPI.transfer(0);
 
-                unsigned int numb_packet_rcv = SPI.transfer(0)<<7;
-                numb_packet_rcv |= SPI.transfer(0);
+                nprcv = SPI.transfer(0)<<7;
+                nprcv |= SPI.transfer(0);
 
+                //Serial.println(numb_packet_rcv);
                 /* Serial.print("packet loss: ");
                    Serial.println(numb_packet_sent/numb_packet_rcv);
                  */
@@ -205,7 +210,7 @@ void sendMessage(uint8_t vel, uint8_t car_state)
         setMode(M_TX);
         while(packetSent == 0) ;
         numb_packet_sent++;
-        //Serial.println("PacketSent");
+
         packetSent = 0;
 
         return;
@@ -255,7 +260,7 @@ void setMode(uint8_t state)
 }
 
 
-void checkMessages(uint8_t &std, uint8_t &velc)
+void checkMessages(uint8_t &std, uint8_t &velc, uint8_t &empty)
 {
         //uint8_t vp=0;
         sum_packet = 0;
@@ -266,6 +271,7 @@ void checkMessages(uint8_t &std, uint8_t &velc)
         {
                 std = 3;
                 velc = 0;
+                empty = 1;
         }
         else
         {
@@ -283,7 +289,8 @@ void checkMessages(uint8_t &std, uint8_t &velc)
                         velc = 0;
                 std = sum_sent/(npackets);
 
-                if(std <0 || std >4)
+
+                if(std <0 || std >5)
                         std = 3;
                 sum_packet =0;
                 sum_sent = 0;
@@ -297,6 +304,7 @@ void isr0(void){
         else if(rf69_state == M_TX)
         {
                 packetSent = 1;
+
         }
 
 }

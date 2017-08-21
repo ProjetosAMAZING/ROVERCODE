@@ -22,7 +22,10 @@ unsigned long ttime_vel; // timer 1s
 uint8_t velocidade; // velocidade pretendida
 uint8_t sent; // sentido pretendido
 uint8_t car_state; //Estado actual do carro
-
+int nRCV;
+uint8_t PairConclude = 0;
+uint8_t empty;
+uint8_t count_timeout = 0;
 void setup() {
 // Serial- Debug
         Serial.begin(115200);
@@ -46,14 +49,40 @@ void setup() {
 // Check voltage ( falta fazer, divisor resistivo)
         //checkBattery();
 // Pair with another RF Transceiver (falta fazer)
-
+        /*  waiToReceive();
+           while(PairConclude != 1)
+           { Serial.println("HERE");
+            if(receiveDone() == 1)
+            {
+                    readMessage(velocidade,sent);
+                    if(velocidade == 0 && sent == 5)
+                    {
+                            PairConclude = 1;
+                            sendMessage(readVelocity(),sent);
+                    }
+            }}
+         */
 // Leds por este parametros para o utilizador externo verificar
         //sendMessage(0x88,0x88);
 //Start Timer, para a máquina de estados.
-        Timer1.initialize(100000); //100ms
+        Timer1.initialize(100000);         //100ms
         Timer1.attachInterrupt(PIDTimer);
 }
 void loop(){
+
+        while(PairConclude != 1)
+        {
+                if(receiveDone() == 1)
+                {
+                        readMessage(velocidade, sent,nRCV);
+                        Serial.print(velocidade); Serial.println(nRCV);
+                        if(velocidade == 0 && nRCV ==1)
+                        {
+                                sendMessage(readVelocity(), car_state);
+                                PairConclude = 1;
+                        }
+                }
+        }
 
         if(stateTimer == 1) //T=100ms entra na maquina de estados.
         {
@@ -88,6 +117,7 @@ void loop(){
 
         else if(stateTimer == 0) // Se nao estiver na maquina de estado vai ver as mensagens
         {
+
                 kickDog(1); // Pin 12 sempre a HIGH
                 if(receiveDone() == 1) //Ve se recebeu alguma coisa e coloca num fifo
                 {
@@ -98,11 +128,30 @@ void loop(){
 
                 else if((millis() - ttime_vel)>= 1000) // Em 1s em 1s vai ler o fifo e mudar o estados (velocidade,Carestado)
                 {
-                        checkMessages(sent, velocidade); // leitura do fifo a velocidade vem dentro de parametros 0-100 e sentido 0 - para frente 1 - para tras
-                        if(velocidade == 0 || (sent != 0 && sent !=1)) //vel = 0 ou sentido diferente do desejado (garantia) estado inicial PARK
+
+                        checkMessages(sent, velocidade,empty); // leitura do fifo a velocidade vem dentro de parametros 0-100 e sentido 0 - para frente 1 - para tras
+
+                        if(velocidade == 0 || (sent != 0 && sent !=1))  //vel = 0 ou sentido diferente do desejado (garantia) estado inicial PARK
                         {
+                                if(empty == 1)
+                                {
+                                        count_timeout++;
+                                        if(count_timeout >=3)
+                                        {
+
+                                                Serial.println("HERE");
+                                                PairConclude = 0;
+                                                resetPackets();
+                                        }
+                                        count_timeout =0;
+                                }
+                                else if(empty == 0)
+                                {
+                                        count_timeout = 0;
+                                }
                                 breakCar(); // Parar o carro
                                 car_state = 0x00; //Mudar o estado actual para PARK
+
                         }
                         else{
                                 switch (sent)
