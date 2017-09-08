@@ -16,7 +16,7 @@ byte data;
 uint8_t Carsentido =1;
 
 static uint8_t kickAvailable = 1;
-
+uint8_t flagKick = 1;
 float errSum =0;
 float lastErr = 0;
 float lastTime = 0;
@@ -43,13 +43,19 @@ uint8_t checkInitVoltage(void)
 
 void kickDog(uint8_t st)
 {
-        if(kickAvailable)
+        if(flagKick)
         {
-                if(st == 1)
-                        digitalWrite(12, HIGH);
-                else
-                        digitalWrite(12, LOW);
+                digitalWrite(12, HIGH);
         }
+        else
+        {
+                digitalWrite(12, LOW);
+        }
+
+        if(flagKick == 1)
+                flagKick = 0;
+        else
+                flagKick = 1;
 }
 
 uint8_t PID(uint8_t &v)
@@ -157,7 +163,7 @@ uint8_t configCar()
         digitalWrite(12, HIGH);
         pinMode(2, OUTPUT);
         pinMode(2, INPUT_PULLUP);
-        attachInterrupt(digitalPinToInterrupt(2), security, RISING);
+        //attachInterrupt(digitalPinToInterrupt(2), security, RISING);
         /*SS DAC*/
         pinMode(SSDAC,OUTPUT);
         /*pinos afectam a direção*/

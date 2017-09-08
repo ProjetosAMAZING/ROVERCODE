@@ -5,11 +5,16 @@
 #include "TimerOne.h"
 #include "atomic.h"
 #include "carcontrol.h"
-
+#include "SkyTraqNmeaParser.h"
+#include <SoftwareSerial.h>
 
 void initVariables(void);
 void PIDTimer(void);
 
+char c = "o";
+SoftwareSerial mySerial(0,1);
+SkyTraqNmeaParser parser;
+const GnssData* gdata;
 
 const int ledPin =  13;
 int ledState = LOW;
@@ -30,8 +35,13 @@ void setup() {
 // Serial- Debug
         Serial.begin(115200);
         while(!Serial) ;
+        Serial1.begin(115200,SERIAL_8N1 );
+        while(!Serial1) ;
+        //  attachInterrupt(digitalPinToInterrupt(1), serialInterrupt, CHANGE);
+
 //Configurar SPI
         configSPI();
+
 //Configurar o modulo RF
         configModule();
 // Verificar se o modulo está bem ligado
@@ -65,8 +75,14 @@ void setup() {
 // Leds por este parametros para o utilizador externo verificar
         //sendMessage(0x88,0x88);
 //Start Timer, para a máquina de estados.
-        Timer1.initialize(100000);         //100ms
+        Timer1.initialize(1000000);         //100ms
         Timer1.attachInterrupt(PIDTimer);
+        //For UART interrupt
+        pinMode(2, INPUT);
+        digitalWrite(2, LOW);
+
+
+//        attachInterrupt(digitalPinToInterrupt(2), serialInterrupt, CHANGE);
 }
 void loop(){
 
@@ -75,7 +91,7 @@ void loop(){
                 if(receiveDone() == 1)
                 {
                         readMessage(velocidade, sent,nRCV);
-                        Serial.print(velocidade); Serial.println(nRCV);
+                        //  Serial.println(nRCV);
                         if(velocidade == 0 && nRCV ==1)
                         {
                                 sendMessage(readVelocity(), car_state);
@@ -88,13 +104,13 @@ void loop(){
         {
                 switch (car_state) { //kickDog every time to Low
                 case 0x04: // Estado RUN
-                        kickDog(0);
+                           //  kickDog(0);
                         PID(velocidade); // Calcula PID e coloca a tensao no acelerador
                         break;
                 case 0x03: // A espera que o carro pare - Trocar sentido se precisar - Estado transitivo entre RUN-PARK
                         if(waitToStop() == 1) // esperar que pare
                         {
-                                kickDog(0); // Se nao parar em 7s desliga o motor.
+                                //    kickDog(0); // Se nao parar em 7s desliga o motor.
                                 changeSent(sent);// Mudar de Sentido se necessário
                                 startCar(); // Coloca no estado excitado again.
                                 while((millis()-ttt)<=1000) ; //Espera 1S para prosseguir
@@ -106,7 +122,7 @@ void loop(){
                 case 0x00: //Estado inicial. Supostamente parado
                         if(isParked())
                         {
-                                kickDog(0); // se nao estiver parado nao faz kick no watchdog.
+                                //  kickDog(0); // se nao estiver parado nao faz kick no watchdog.
                         }
                         break;
 
@@ -118,7 +134,7 @@ void loop(){
         else if(stateTimer == 0) // Se nao estiver na maquina de estado vai ver as mensagens
         {
 
-                kickDog(1); // Pin 12 sempre a HIGH
+                //  kickDog(1); // Pin 12 sempre a HIGH
                 if(receiveDone() == 1) //Ve se recebeu alguma coisa e coloca num fifo
                 {
                         readtoFifo();
@@ -186,17 +202,46 @@ void loop(){
                         Serial.print(" velocidade: ");
                         Serial.println(velocidade);
 
+                        if(ledState == 0)
+                                digitalWrite(ledPin, HIGH);
+                        else
+                                digitalWrite(ledPin,LOW);
+                        if(ledState == 0)
+                                ledState = 1;
+                        else
+                                ledState =0;
+
+                        kickDog(1);
                         // timer de leitura;
+                        //gdata = parser.GetGnssData();
+                        //const GnssData& gnss = *gdata;
+                        //Serial.print(gnss.GetLongitude(),15);
+                        //Serial.print(" ");
+                        //Serial.println(gnss.GetLatitude(),15);
+
                         ttime_vel = millis();
                 }
         }
 
 }
 
+volatile boolean inService = false;
+void serialInterrupt()
+{
+
+        if(Serial1.available()>0)
+        {
+                parser.Encode(Serial1.read());
+                Serial1.flush();
+        }
+
+
+}
 
 void PIDTimer(void)
 {
         stateTimer = 1;
+
 }
 
 void initVariables(void)
