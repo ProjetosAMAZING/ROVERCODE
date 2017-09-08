@@ -81,7 +81,7 @@ uint8_t waitToSend(void);
 uint8_t SendACK();
 uint8_t RecvACK();
 void waiToReceive (void);
-void readMessage(uint8_t & vel, uint8_t & carS, int &nprcv);
+void readMessage(uint8_t &vel, uint8_t &carS, int &nprcv);
 void checkMessages(uint8_t &std, uint8_t &velc,uint8_t &empty);
 void  resetPackets();
 int nPacketRcv(void);

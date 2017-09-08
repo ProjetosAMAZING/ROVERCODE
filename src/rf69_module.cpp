@@ -85,11 +85,11 @@ void configModule(void)
         writeRegister(RegSyncValue1,0x2D);
         writeRegister(RegSyncValue2,100);
 
-        writeRegister(RegPacketConfig1,0x00 | NONE_CODE | crcON | crc_autoclear_ON);// ver melhor isto
+        writeRegister(RegPacketConfig1,0x0 | NONE_CODE | crcON | crc_autoclear_ON);// ver melhor isto
 
         writeRegister(RegPayloadLength,4);
 
-        writeRegister(RegFifoThresh,0x01);
+        writeRegister(RegFifoThresh,0x80 | 0x0F );
         writeRegister(RegPacketConfig2,AUTORXRESTART_ON |AES_OFF);
 
 
@@ -140,12 +140,12 @@ void readtoFifo()
         {
                 digitalWrite(8, LOW);
                 SPI.transfer(0);
-
+                //  Serial.print(SPI.transfer(0));
                 numb_packet_rcv = SPI.transfer(0)<<7;
                 numb_packet_rcv |= SPI.transfer(0);
 
-                Serial.print("packet rcv: ");
-                Serial.println(numb_packet_rcv);
+                //Serial.print("packet rcv: ");
+                //Serial.println(numb_packet_rcv);
                 if(numb_packet_rcv == 0)
                 {
                         resetPackets();
@@ -158,13 +158,13 @@ void readtoFifo()
 }
 
 
-void readMessage(uint8_t & vel, uint8_t & carS, int &nprcv)
+void readMessage(uint8_t& vel, uint8_t & carS, int &nprcv)
 {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
         {
                 digitalWrite(8, LOW);
                 SPI.transfer(0);
-
+                //  Serial.print(SPI.transfer(0));
                 nprcv = SPI.transfer(0)<<7;
                 nprcv |= SPI.transfer(0);
 
@@ -172,8 +172,8 @@ void readMessage(uint8_t & vel, uint8_t & carS, int &nprcv)
                 /* Serial.print("packet loss: ");
                    Serial.println(numb_packet_sent/numb_packet_rcv);
                  */
-                vel = SPI.transfer(0);
-                carS = SPI.transfer(0);
+                vel = (uint8_t)SPI.transfer(0);
+                carS = (uint8_t)SPI.transfer(0);
 
                 digitalWrite(8, HIGH);
         }
@@ -195,10 +195,11 @@ void sendMessage(uint8_t vel, uint8_t car_state)
         {
                 digitalWrite(slavePin,LOW);
                 SPI.transfer(RegFifo | SPI_WRITE);
-
+                //    SPI.transfer(0x05);
                 SPI.transfer((numb_packet_sent&0xFF00)>>7);
                 SPI.transfer((numb_packet_sent&0xFF));
-
+                //  Serial.print("sent: ");
+                //  Serial.println(numb_packet_sent);
                 //tamanho
                 SPI.transfer(vel);
                 SPI.transfer(car_state);
@@ -300,10 +301,12 @@ void isr0(void){
         if(rf69_state == M_RX)
         {
                 payload = 1;
+                Serial.print("R");
         }
         else if(rf69_state == M_TX)
         {
                 packetSent = 1;
+                Serial.println("T");
 
         }
 
