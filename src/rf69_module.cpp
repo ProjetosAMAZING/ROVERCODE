@@ -5,6 +5,8 @@
 #include <SPI.h>
 #include "rf69_module.h"
 #include "QueueList.h"
+#include "SkyTraqNmeaParser.h"
+#include <SoftwareSerial.h>
 
 
 
@@ -13,7 +15,24 @@ uint8_t readRegister(uint8_t address);
 void setMode(uint8_t state);
 void isr0(void);
 void waiToReceive (void);
+void getPosition(uint8_t &xt, uint8_t &yt, uint8_t &h, uint8_t &m, uint8_t &s, uint8_t &gpsst,uint8_t &gpspeed);
+void serialInterrupt(void);
 
+SkyTraqNmeaParser parser;
+const GnssData* gdata;
+SoftwareSerial mySerial(0,1);
+static const float x3 =  -8.660310006172601;
+static const float x4 =  -8.659699462693688;
+static const float y2 = 40.634400217149938;
+static const float y1 = 40.633934334441228;
+
+uint8_t lat;
+uint8_t lg;
+uint8_t h;
+uint8_t m;
+uint8_t s;
+uint8_t gpsst;
+uint8_t gpspeed;
 
 int sum_packet = 0;
 uint8_t sum_sent = 0;
@@ -85,14 +104,17 @@ void configModule(void)
         writeRegister(RegSyncValue1,0x2D);
         writeRegister(RegSyncValue2,100);
 
-        writeRegister(RegPacketConfig1,0x0 | NONE_CODE | crcON | crc_autoclear_ON);// ver melhor isto
+        writeRegister(RegPacketConfig1,0x80 | NONE_CODE | crcON | crc_autoclear_ON);// ver melhor isto
 
-        writeRegister(RegPayloadLength,4);
+        writeRegister(RegPayloadLength,64);
 
         writeRegister(RegFifoThresh,0x80 | 0x0F );
         writeRegister(RegPacketConfig2,AUTORXRESTART_ON |AES_OFF);
 
-
+        // gpSatellites
+        pinMode(2, INPUT);
+        digitalWrite(2, LOW);
+        attachInterrupt(digitalPinToInterrupt(2), serialInterrupt, CHANGE);
 }
 
 void  resetPackets(){
@@ -140,7 +162,8 @@ void readtoFifo()
         {
                 digitalWrite(8, LOW);
                 SPI.transfer(0);
-                //  Serial.print(SPI.transfer(0));
+                //Serial.print(SPI.transfer(0));
+                uint8_t tempp = SPI.transfer(0);
                 numb_packet_rcv = SPI.transfer(0)<<7;
                 numb_packet_rcv |= SPI.transfer(0);
 
@@ -155,6 +178,7 @@ void readtoFifo()
 
                 digitalWrite(8, HIGH);
         }
+        writeRegister(RegIrqFlags2,FIFO_OVERRUN);
 }
 
 
@@ -165,6 +189,7 @@ void readMessage(uint8_t& vel, uint8_t & carS, int &nprcv)
                 digitalWrite(8, LOW);
                 SPI.transfer(0);
                 //  Serial.print(SPI.transfer(0));
+                uint8_t temp2 = SPI.transfer(0);
                 nprcv = SPI.transfer(0)<<7;
                 nprcv |= SPI.transfer(0);
 
@@ -177,17 +202,20 @@ void readMessage(uint8_t& vel, uint8_t & carS, int &nprcv)
 
                 digitalWrite(8, HIGH);
         }
+        writeRegister(RegIrqFlags2,FIFO_OVERRUN);
 }
 
 void sendMessage(uint8_t vel, uint8_t car_state)
 {
         setMode(M_STDBY);
+
         writeRegister(RegDioMapping1, DIO0_00);
 
         //Serial.print("A enviar velocidade: ");
         //Serial.print(vel_pretendida);
         //Serial.print(" seq_frame: ");
         //Serial.println(SEQ_FRAME);
+        getPosition(lat,lg,h,m,s,gpsst,gpspeed);
 
 
 
@@ -195,7 +223,7 @@ void sendMessage(uint8_t vel, uint8_t car_state)
         {
                 digitalWrite(slavePin,LOW);
                 SPI.transfer(RegFifo | SPI_WRITE);
-                //    SPI.transfer(0x05);
+                SPI.transfer(12);
                 SPI.transfer((numb_packet_sent&0xFF00)>>7);
                 SPI.transfer((numb_packet_sent&0xFF));
                 //  Serial.print("sent: ");
@@ -203,6 +231,15 @@ void sendMessage(uint8_t vel, uint8_t car_state)
                 //tamanho
                 SPI.transfer(vel);
                 SPI.transfer(car_state);
+
+                SPI.transfer(lat);
+                SPI.transfer(lg);
+                SPI.transfer(h);
+                SPI.transfer(m);
+                SPI.transfer(s);
+                SPI.transfer(gpspeed);
+                SPI.transfer(gpsst);
+
 
                 digitalWrite(slavePin, HIGH);
         }
@@ -213,6 +250,8 @@ void sendMessage(uint8_t vel, uint8_t car_state)
         numb_packet_sent++;
 
         packetSent = 0;
+        writeRegister(RegIrqFlags2,FIFO_OVERRUN);
+
 
         return;
 }
@@ -301,12 +340,12 @@ void isr0(void){
         if(rf69_state == M_RX)
         {
                 payload = 1;
-                Serial.print("R");
+                //Serial.print("R");
         }
         else if(rf69_state == M_TX)
         {
                 packetSent = 1;
-                Serial.println("T");
+                //Serial.println("T");
 
         }
 
@@ -325,4 +364,38 @@ uint8_t readRegister(uint8_t address){
         uint8_t value = SPI.transfer(RegFifo);
         digitalWrite(slavePin,HIGH);
         return value;
+}
+
+
+
+void getPosition(uint8_t &xt, uint8_t &yt, uint8_t &h, uint8_t &m, uint8_t &s, uint8_t &gpsst,uint8_t &gpspeed )
+{
+        gdata = parser.GetGnssData();
+        const GnssData& gnss = *gdata;
+
+        xt = ((x3-gnss.GetLongitude())/(x4-x3))*255;
+        yt = ((y2-gnss.GetLatitude())/(y2-y1))*255;
+
+        h = gnss.GetHour();
+        s = gnss.GetSecond();
+        m = gnss.GetMinute();
+        //  Serial.println();
+        //  Serial.print(m);
+        gpsst = (gnss.GetQualitMode());
+
+        gpspeed = gnss.GetRtkRatio()*10;
+
+
+}
+
+void serialInterrupt()
+{
+
+        if(Serial1.available()>0)
+        {
+                parser.Encode(Serial1.read());
+                Serial1.flush();
+        }
+
+
 }

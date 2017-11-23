@@ -5,16 +5,15 @@
 #include "TimerOne.h"
 #include "atomic.h"
 #include "carcontrol.h"
-#include "SkyTraqNmeaParser.h"
-#include <SoftwareSerial.h>
+
+
 
 void initVariables(void);
 void PIDTimer(void);
 
 char c = "o";
-SoftwareSerial mySerial(0,1);
-SkyTraqNmeaParser parser;
-const GnssData* gdata;
+
+
 
 const int ledPin =  13;
 int ledState = LOW;
@@ -33,12 +32,12 @@ uint8_t empty;
 uint8_t count_timeout = 0;
 void setup() {
 // Serial- Debug
-        Serial.begin(115200);
-        while(!Serial) ;
+        //  Serial.begin(115200);
+        //while(!Serial) ;
         Serial1.begin(115200,SERIAL_8N1 );
         while(!Serial1) ;
         //  attachInterrupt(digitalPinToInterrupt(1), serialInterrupt, CHANGE);
-
+        Serial.print(";)");
 //Configurar SPI
         configSPI();
 
@@ -47,7 +46,7 @@ void setup() {
 // Verificar se o modulo está bem ligado
         while(checkModule() == 0)
         {
-                Serial.println("Module connections maybe wrong, cant communicate via SPI");
+                //              Serial.println("Module connections maybe wrong, cant communicate via SPI");
                 delay(1000);
         }
 // Inicialazação das variaveis estado
@@ -75,19 +74,16 @@ void setup() {
 // Leds por este parametros para o utilizador externo verificar
         //sendMessage(0x88,0x88);
 //Start Timer, para a máquina de estados.
-        Timer1.initialize(1000000);         //100ms
+        Timer1.initialize(400000);         //100ms
         Timer1.attachInterrupt(PIDTimer);
         //For UART interrupt
-        pinMode(2, INPUT);
-        digitalWrite(2, LOW);
-
-
-//        attachInterrupt(digitalPinToInterrupt(2), serialInterrupt, CHANGE);
+//        Serial.println("HELLO=)");
 }
 void loop(){
 
         while(PairConclude != 1)
         {
+
                 if(receiveDone() == 1)
                 {
                         readMessage(velocidade, sent,nRCV);
@@ -103,9 +99,17 @@ void loop(){
         if(stateTimer == 1) //T=100ms entra na maquina de estados.
         {
                 switch (car_state) { //kickDog every time to Low
+                case 0x05:
+                        DynamicPID(velocidade);
+                        break;
                 case 0x04: // Estado RUN
                            //  kickDog(0);
-                        PID(velocidade); // Calcula PID e coloca a tensao no acelerador
+                        if(PID(velocidade))
+                        {
+                                car_state = 0x04;
+                                //car_state = 0x05;
+                                //resetPID2();
+                        } // Calcula PID e coloca a tensao no acelerador
                         break;
                 case 0x03: // A espera que o carro pare - Trocar sentido se precisar - Estado transitivo entre RUN-PARK
                         if(waitToStop() == 1) // esperar que pare
@@ -113,7 +117,7 @@ void loop(){
                                 //    kickDog(0); // Se nao parar em 7s desliga o motor.
                                 changeSent(sent);// Mudar de Sentido se necessário
                                 startCar(); // Coloca no estado excitado again.
-                                while((millis()-ttt)<=1000) ; //Espera 1S para prosseguir
+                                while((millis()-ttt)<=3000) ; //Espera 1S para prosseguir
                                 car_state =0x04; // Vai para o estado RUN
                         }
                         else
@@ -137,6 +141,7 @@ void loop(){
                 //  kickDog(1); // Pin 12 sempre a HIGH
                 if(receiveDone() == 1) //Ve se recebeu alguma coisa e coloca num fifo
                 {
+                        //  Serial.print("RX");
                         readtoFifo();
                         sendMessage(readVelocity(),car_state); // Responde com os dados da telemetria do carro, como ACK
                         waiToReceive(); // Coloca o modulo RF em função RX
@@ -155,7 +160,7 @@ void loop(){
                                         if(count_timeout >=3)
                                         {
 
-                                                Serial.println("HERE");
+
                                                 PairConclude = 0;
                                                 resetPackets();
                                         }
@@ -176,7 +181,7 @@ void loop(){
                                 case 0x00: // se o sentido do utilizador for 0
                                         if(car_state == 0x00)
                                                 car_state = 0x03; // garantia que esta parado, e mudar o sentido se a situaçao anterior foi diferente
-                                        if(sentCar() != sent && car_state == 0x04) // Se o carro esta a andar e vai mudar de sentido por estado 3 (transiente)
+                                        if(sentCar() != sent && (car_state == 0x04 || car_state == 0x05)) // Se o carro esta a andar e vai mudar de sentido por estado 3 (transiente)
                                         {
                                                 breakCar(); // Travar o carro
                                                 car_state = 0x03; // Estado para esperar enquanto o carro nao chega ao estado estacionario
@@ -185,7 +190,7 @@ void loop(){
                                 case 0x01: // mesma coisa mas se o sentido for para o sentido contrario
                                         if(car_state == 0x00)
                                                 car_state = 0x03;
-                                        if(sentCar() != sent && car_state == 0x04)
+                                        if(sentCar() != sent && (car_state == 0x04 || car_state == 0x05))
                                         {
                                                 //Serial.println("HERE");
                                                 breakCar();
@@ -195,12 +200,12 @@ void loop(){
                                 }
                         }
                         // apensa prints de debug
-                        Serial.print("Estado: ");
-                        Serial.print(car_state);
-                        Serial.print(" Sentido: ");
-                        Serial.print(sent);
-                        Serial.print(" velocidade: ");
-                        Serial.println(velocidade);
+                        //Serial.print("Estado: ");
+                        //Serial.print(car_state);
+                        //Serial.print(" Sentido: ");
+                        //Serial.print(sent);
+                        //Serial.print(" velocidade: ");
+                        //Serial.println(velocidade);
 
                         if(ledState == 0)
                                 digitalWrite(ledPin, HIGH);
@@ -212,6 +217,8 @@ void loop(){
                                 ledState =0;
 
                         kickDog(1);
+                        Serial.flush();
+                        //Serial1.flush();
                         // timer de leitura;
                         //gdata = parser.GetGnssData();
                         //const GnssData& gnss = *gdata;
@@ -225,18 +232,8 @@ void loop(){
 
 }
 
-volatile boolean inService = false;
-void serialInterrupt()
-{
-
-        if(Serial1.available()>0)
-        {
-                parser.Encode(Serial1.read());
-                Serial1.flush();
-        }
 
 
-}
 
 void PIDTimer(void)
 {

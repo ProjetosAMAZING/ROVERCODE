@@ -3,8 +3,9 @@
 
 #include <Arduino.h>
 
-
+uint8_t DynamicPID(uint8_t &v);
 uint8_t checkInitVoltage();
+void resetPID2(void);
 uint8_t configCar(void);
 uint8_t PID(uint8_t &v);
 uint8_t configCar();

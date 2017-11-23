@@ -24,9 +24,13 @@ double Input,Output;
 
 unsigned int out = 0;
 
-const float kp = 0.08;
-const float kd = 0.8;
-const float ki = 0.00008;
+const float kp = 0.7;
+const float kd = 16;
+const float ki = 0.0007;
+
+const float kpd = 0.8;
+const float kdd = 26;
+const float kid = 0.0007;
 
 int value = 0;
 int lastV = 0;
@@ -61,13 +65,13 @@ void kickDog(uint8_t st)
 uint8_t PID(uint8_t &v)
 {
 
-        Input = (analogRead(A0)*5.0/1024)*100/4.90;
-
+        Input = (analogRead(A0)*5.0/1024)*100/5;
+        //  Serial.println(Input);
         float error = v - Input;
 
         unsigned long now = millis();
         float timeChange = (now - lastTime);
-
+        //  Serial.println(timeChange);
         errSum += (error * timeChange);
         float dErr = (error - lastErr) / timeChange;
         Output = kp * error + ki * errSum + kd * dErr;
@@ -79,6 +83,42 @@ uint8_t PID(uint8_t &v)
 
         if(Output > 2700)
                 Output = 2700;
+        else if(Output<1150)
+                Output = 850;
+
+        out = (int) Output;
+
+
+        setVoltage(out);
+
+        lastErr = error;
+        lastTime = now;
+
+        if(error<5)
+                return 1;
+        else
+                return 0;
+}
+uint8_t DynamicPID(uint8_t &v)
+{
+
+        Input = (analogRead(A0)*5.0/1024)*100/5;
+        float error = v - Input;
+
+        unsigned long now = millis();
+        float timeChange = (now - lastTime);
+
+        errSum += (error * timeChange);
+        float dErr = (error - lastErr) / timeChange;
+        Output = kpd * error + kid * errSum + kdd * dErr;
+
+
+        Output = (2430-1100)*(Output/100) + 1100;
+
+
+
+        if(Output > 3000)
+                Output = 3000;
         else if(Output<1150)
                 Output = 850;
 
@@ -139,7 +179,7 @@ uint8_t isParked(void)
 {
 
 
-        if((analogRead(A0)*5.0/1024.0)<= 0.06)
+        if((analogRead(A0)*5.0/1024.0)<= 0.04)
         {
                 return 1;
         }
@@ -154,6 +194,13 @@ void resetPID(void)
         errSum =0;
         lastErr = 0;
         lastTime = millis();
+}
+void resetPID2(void)
+{
+
+
+
+
 }
 
 uint8_t configCar()
