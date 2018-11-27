@@ -65,7 +65,7 @@
 #define   RegFifoThresh     0x3C
 #define   RegPacketConfig2  0x3D
 #define   RegTestPa1       0x5A
-#define   RegTestPa2       0x5c
+#define   RegTestPa2       0x5C
 #define   RegTestLna      0x58
 
 
@@ -85,6 +85,8 @@ void readMessage(uint8_t &vel, uint8_t &carS, int &nprcv);
 void checkMessages(uint8_t &std, uint8_t &velc,uint8_t &empty);
 void  resetPackets();
 int nPacketRcv(void);
+//uint8_t GPState();
+//uint8_t gpsSpeed(void);
 /*flow control data*/
 
 #define FRAME0 0x80

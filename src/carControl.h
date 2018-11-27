@@ -2,7 +2,8 @@
 #define carControl_H
 
 #include <Arduino.h>
-
+void resetPID(void);
+uint8_t bateryState(void);
 uint8_t DynamicPID(uint8_t &v);
 uint8_t checkInitVoltage();
 void resetPID2(void);
