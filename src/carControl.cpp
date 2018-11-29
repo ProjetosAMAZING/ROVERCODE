@@ -45,13 +45,13 @@ int lastV = 0;
 
 uint8_t checkInitVoltage(void)
 {
-        if((analogRead(A1)*5/1024)>=0.90 && ((analogRead(A2)*5/1024)>=4.90))
+        if((analogRead(A2)*5/1024)>=4.90)
                 return 1;
         else
                 return 0;
 }
 
-void kickDog(uint8_t st)
+void kickDog(uint8_t st) // módulo de segurança
 {
         if(flagKick)
         {
@@ -70,10 +70,10 @@ void kickDog(uint8_t st)
 
 uint8_t PID(uint8_t &v)
 {
-        Input = ((analogRead(A0)*5.0/1024)*(292/47));
+        Input = ((analogRead(A0)*5.0/1024)*(292/47)); // Leitura do filtro passa baixo
         //Input = gpsSpeed();
         //  Serial.println(Input);
-        float error = v - Input;
+        float error = v - Input; // erro V pretendido - V lido
 
         unsigned long now = millis();
         float timeChange = (now - lastTime);
@@ -83,11 +83,11 @@ uint8_t PID(uint8_t &v)
         Output = kp * error + ki * errSum + kd * dErr;
 
 
-        Output = (Output) + 1120;
+        Output = (Output) + 1120; // janela do PID vai de 1120 até 2600
 
 
 
-        if(Output > 2600)
+        if(Output > 2600) // Wind-up
                 Output = 2600;
         else if(Output<1120)
                 Output = 880;
@@ -95,12 +95,12 @@ uint8_t PID(uint8_t &v)
         out = (int) Output;
 
 
-        setVoltage(out);
+        setVoltage(out); // colocar na DAC
 
         lastErr = error;
         lastTime = now;
 
-        if((v-gpsSpeed()<2 || v <=3) && GPState() >= 4)
+        if((v-gpsSpeed()<2 || v <=3) && GPState() >= 4) // convergência para colocar para o PID com a leitura da velocidade apartir do módulo GPS-RTK
         {
                 return 1;
         }
@@ -114,7 +114,7 @@ uint8_t DynamicPID(uint8_t &v)
   Input = gpsSpeed();
   //  Serial.println(Input);
   float error = v - Input;
-  if(error <-1.5)
+  if(error <-1.5) //Tentativa de melhoramento do controlo de velocidade - ainda não está aperfeiçoado corretamente.
   {
     setVoltage(880);
   }
@@ -147,12 +147,12 @@ uint8_t DynamicPID(uint8_t &v)
   return 1;
 }
 
-uint8_t sentCar()
+uint8_t sentCar() // enviar o sentido do carro no momento
 {
         return Carsentido;
 }
 
-void changeSent(uint8_t & sent){
+void changeSent(uint8_t & sent){ // mudança do sentido
         if(sent == 0)
         {
                 setReverse();
@@ -166,14 +166,13 @@ void changeSent(uint8_t & sent){
 
 void startCar(){
         resetPID();
-
 }
 
-uint8_t readVelocity()
+uint8_t readVelocity() // Ler velocidade filtro-passa baixo
 {
         return uint8_t((analogRead(A0)*5.0/1024)*(292/47));
 }
-uint8_t waitToStop()
+uint8_t waitToStop() // Esperar até que a velocidade lida por parte do filtro passa baixo seja perto de zero.
 {
 
         if((analogRead(A0)*5.0/1024.0) <= 0.07)
@@ -183,14 +182,14 @@ uint8_t waitToStop()
                 return 0;
               }
 }
-uint8_t breakCar()
+uint8_t breakCar() // colocar 0 potência no carro
 {
         setVoltage(880);
         return 1;
 }
 
 
-uint8_t isParked(void)
+uint8_t isParked(void) // verificar se o carro está em repouso
 {
         if((analogRead(A0)*5.0/1024.0)<= 0.04)
         {
@@ -201,7 +200,7 @@ uint8_t isParked(void)
 }
 
 
-void resetPID(void)
+void resetPID(void) // reset parametro PID
 {
 
         errSum =0;
@@ -210,7 +209,7 @@ void resetPID(void)
 }
 
 
-uint8_t configCar()
+uint8_t configCar() //configuração do pinos arduino para o carro
 {
         // Pin 12 onda quadrada para o watchdog
         pinMode(12,OUTPUT);
@@ -224,34 +223,33 @@ uint8_t configCar()
 
         pinMode(MotorWay,OUTPUT);
         pinMode(ADCWay,OUTPUT);
-        pinMode(A1, INPUT);
-        pinMode(A2, INPUT);
+
+        //pinMode(A2, INPUT);// Leitura dos valores bateria
 
         setFoward();
 
-        pinMode(A0,INPUT);
-        pinMode(A1,INPUT);
-
-//excitação do acelarador
+        pinMode(A0,INPUT);//Leitura da velocidade
+        pinMode(A1,INPUT); // Leitura dos valores bateria
+        //excitação do acelarador
         setVoltage(880);
 
         return 1;
 }
 
-uint8_t bateryState()
+uint8_t bateryState() // Leitura das baterias
 {
     return (  (((analogRead(A1)/1024)*5)*13)/65)*100;
 }
 
 
-void security(void)
+void security(void) // sem efeito
 {
         kickAvailable = 0;
         Serial.println("here");
         detachInterrupt(digitalPinToInterrupt(2));
 }
 
-void setFoward(void)
+void setFoward(void) // configuração para colocar o motor a andar para frente
 {
         digitalWrite(MotorWay,HIGH);
         digitalWrite(ADCWay,HIGH);
@@ -260,7 +258,7 @@ void setFoward(void)
 
 
 
-void setReverse(void)
+void setReverse(void) // configuração para a rotação inversa do motor
 {
 
         digitalWrite(MotorWay,LOW);
@@ -268,7 +266,7 @@ void setReverse(void)
         Carsentido = 0;
 }
 
-void setVoltage(int value)
+void setVoltage(int value) // Escrita nos valores da DAC
 {
   noInterrupts();
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE)

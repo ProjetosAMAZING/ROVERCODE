@@ -52,7 +52,7 @@ uint8_t rf69_state = M_STDBY;
 static volatile uint8_t payload = 0;
 volatile uint8_t packetSent = 0;
 
-void configSPI(void){
+void configSPI(void){ //configuração SPI arduino Leonardo
         SPI.setDataMode(SPI_MODE0);
         SPI.setClockDivider(SPI_CLOCK_DIV16);
         SPI.setBitOrder(MSBFIRST);
@@ -63,7 +63,7 @@ void configSPI(void){
 
 }
 
-void configModule(void)
+void configModule(void) //Configuração do módulo RFM69HCW
 {
 
         writeRegister(RegOpMode,opMode_STDBY); // Sequencer ON - - Listen off - Mode stand by
@@ -71,9 +71,9 @@ void configModule(void)
         writeRegister(RegDataModul, packetMode | FSK | shapeNONE); // PACKET-MODE - FSK - NO SHAPPING
 
         writeRegister(RegBitrateMsb,0x02);
-        writeRegister(RegBitrateLsb, 0x40); // bitRate = 4.8kbs - defalt ver tabela pagina 20. 0x1A 0x0B
+        writeRegister(RegBitrateLsb, 0x40); // bitRate  - defalt ver tabela pagina 20. 0x1A 0x0B
 
-        writeRegister(RegFdevMsb, 0x03); //35Khz -- depois alterar  = Fdev/Fstep // altertar
+        writeRegister(RegFdevMsb, 0x03); //35Khz -- depois alterar  = Fdev/Fstep
         writeRegister(RegFdevLsb, 0x33);
 
         writeRegister(RegFrMsb,Freq_MSB); // Colucar a frequencia a 433Mhz/434Mhz
@@ -88,9 +88,9 @@ void configModule(void)
 
         writeRegister(RegRxBw, RXBW_DCCFREQ_010| RXBW_MANT_16 | RXBW_EXP_2);
 
-//interrupts;
+        //interrupts;
         pinMode(7, INPUT_PULLUP);
-        attachInterrupt(digitalPinToInterrupt(7), isr0, RISING);
+        attachInterrupt(digitalPinToInterrupt(7), isr0, RISING); // Interrupção para obter confirmação de um pacote enviado ou a recepção
         interrupts();
         writeRegister(RegDioMapping2, CLK_OUT_OFF);
         writeRegister(RegDioMapping1, DIO0_01);
@@ -103,7 +103,7 @@ void configModule(void)
         writeRegister(RegSyncValue1,0x2D);
         writeRegister(RegSyncValue2,100);
 
-        writeRegister(RegPacketConfig1,0x80 | NONE_CODE | crcON | crc_autoclear_ON);// ver melhor isto
+        writeRegister(RegPacketConfig1,0x80 | NONE_CODE | crcON | crc_autoclear_ON);
 
         writeRegister(RegPayloadLength,64);
 
@@ -115,11 +115,11 @@ void configModule(void)
           //Serial.print(readRegister(0x01));
 }
 
-void  resetPackets(){
+void  resetPackets(){ // numero de pacotes - não é necessário
         numb_packet_rcv = 0;
         numb_packet_sent = 0;
 }
-uint8_t checkModule(void)
+uint8_t checkModule(void) //Verificar se o módulo está pronto para iniciar a comunicação
 {  //Serial.print(readRegister(RegIrqFlags1)&&MODEREADY);
         if(readRegister(RegIrqFlags1)&&MODEREADY != 0)
                 return 1;
@@ -128,16 +128,16 @@ uint8_t checkModule(void)
 
 }
 
-void waiToReceive (void)
+void waiToReceive (void) // Colocar o módulo RF para RX.
 {
         setMode(M_STDBY);
         payload = 0;
         // Serial.println("start Receiving");
-        writeRegister(RegDioMapping1, DIO0_01);
+        writeRegister(RegDioMapping1, DIO0_01); // Interrupção que indica a recepção de um pacote.
         setMode(M_RX);
 }
 
-uint8_t receiveDone()
+uint8_t receiveDone() // Verificar a recepção de um pacote
 {
         if(rf69_state == M_RX && payload== 1)
         {
@@ -155,7 +155,7 @@ uint8_t receiveDone()
         }
 }
 
-void readtoFifo()
+void readtoFifo() //Transferir os dados para o fifo indicado
 {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
         {
@@ -172,8 +172,8 @@ void readtoFifo()
                 {
                         resetPackets();
                 }
-                velocityQueue.push((uint8_t)SPI.transfer(0));
-                carState.push((uint8_t)SPI.transfer(0));
+                velocityQueue.push((uint8_t)SPI.transfer(0)); // Queue Velocidade
+                carState.push((uint8_t)SPI.transfer(0)); // Queueu Sentido
 
                 digitalWrite(8, HIGH);
         }
@@ -181,7 +181,7 @@ void readtoFifo()
 }
 
 
-void readMessage(uint8_t& vel, uint8_t & carS, int &nprcv)
+void readMessage(uint8_t& vel, uint8_t & carS, int &nprcv) // Leitura de pacote - função que não é utilizada neste programa
 {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
         {
@@ -204,17 +204,17 @@ void readMessage(uint8_t& vel, uint8_t & carS, int &nprcv)
         writeRegister(RegIrqFlags2,FIFO_OVERRUN);
 }
 
-void sendMessage(uint8_t vel, uint8_t car_state)
+void sendMessage(uint8_t vel, uint8_t car_state) // Envio de um pacote
 {
         setMode(M_STDBY);
 
-        writeRegister(RegDioMapping1, DIO0_00);
+        writeRegister(RegDioMapping1, DIO0_00); // interpção que indica que um pacote foi enviado.
 
         //Serial.print("A enviar velocidade: ");
         //Serial.print(vel_pretendida);
         //Serial.print(" seq_frame: ");
         //Serial.println(SEQ_FRAME);
-        getPosition(lat,lg,h,m,s,gpsst,gpspeed);
+        getPosition(lat,lg,h,m,s,gpsst,gpspeed); // obtenção dos dados GPS
         /*  Serial.print(lat);
            Serial.print(" , ");
            Serial.print(((lat&0x000000FF)<<24));
@@ -232,24 +232,24 @@ void sendMessage(uint8_t vel, uint8_t car_state)
                 //  Serial.print("sent: ");
                 //  Serial.println(numb_packet_sent);
                 //tamanho
-                SPI.transfer(vel);
-                SPI.transfer(car_state);
+                SPI.transfer(vel); // Velocidade Filtro-passa-baixo
+                SPI.transfer(car_state); // Estado da máquina de estados
 
-                SPI.transfer(lat&0x00FF);
+                SPI.transfer(lat&0x00FF); // Latitude
                 SPI.transfer((lat&0x00FF00)>> 8);
                 SPI.transfer((lat&0x00FF0000)>>16);
                 SPI.transfer((lat&0x00FF000000)>>24);
-                SPI.transfer(lg&0x00FF);
+                SPI.transfer(lg&0x00FF); //Longitude
                 SPI.transfer((lg&0x00FF00)>> 8);
                 SPI.transfer((lg&0x00FF0000)>>16);
                 SPI.transfer((lg&0x00FF000000)>>24);
-                SPI.transfer(h);
-                SPI.transfer(m);
-                SPI.transfer(s);
-                SPI.transfer(gpspeed);
-                SPI.transfer(gpsst);
-                SPI.transfer(25);
-
+                SPI.transfer(h); //hora
+                SPI.transfer(m);//minuto
+                SPI.transfer(s); // segundo
+                SPI.transfer(gpspeed); // Velocidae do GPS
+                SPI.transfer(gpsst); // Estado do módulo GPS
+                SPI.transfer(61);
+                //SPI.transfer(bateryState());//Estado das baterias.
 
                 digitalWrite(slavePin, HIGH);
         }
@@ -260,14 +260,14 @@ void sendMessage(uint8_t vel, uint8_t car_state)
         numb_packet_sent++;
 
         packetSent = 0;
-        writeRegister(RegIrqFlags2,FIFO_OVERRUN);
+        writeRegister(RegIrqFlags2,FIFO_OVERRUN); // apagar informação do fifo
 
 
         return;
 }
 
 
-void setMode(uint8_t state)
+void setMode(uint8_t state) // escolher o estado do módulo RF
 {
         if(state != rf69_state)
         {
@@ -294,7 +294,7 @@ void setMode(uint8_t state)
                         // Serial.println("TX");
                         break;
                 default:
-                        Serial.println("Nhient");
+                          value |= opMode_STDBY;
                         break;
                 }
 
@@ -310,7 +310,7 @@ void setMode(uint8_t state)
 }
 
 
-void checkMessages(uint8_t &std, uint8_t &velc, uint8_t &empty)
+void checkMessages(uint8_t &std, uint8_t &velc, uint8_t &empty) // check FIFO
 {
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
   {
@@ -319,11 +319,11 @@ void checkMessages(uint8_t &std, uint8_t &velc, uint8_t &empty)
         contador = 0;
         sum_sent = 0;
 
-        if(velocityQueue.isEmpty() || carState.isEmpty())
+        if(velocityQueue.isEmpty() || carState.isEmpty()) // Fifo está vazio ?
         {
-                std = 3;
-                velc = 0;
-                empty = 1;
+                std = 3; //Sentido fora do range
+                velc = 0; // potencia 0
+                empty = 1; // empty
         }
         else
         {
@@ -337,16 +337,16 @@ void checkMessages(uint8_t &std, uint8_t &velc, uint8_t &empty)
                 }
                 //    Serial.println(sum_packet);
 
-                velc = sum_packet/(npackets);
+                velc = sum_packet/(npackets); // médiados valores de velocidade
                 //  Serial.print(velc);
                   //Serial.print(" ");
 
-                if(velc > 30 || velc <0)
+                if(velc > 30 || velc <0) // range dos valores de velocidade aceitaveis
                         velc = 0;
-                std = sum_sent/(npackets);
+                std = sum_sent/(npackets); //média do sentido
 
                 //Serial.println(std);
-                if(std <0 || std >1)
+                if(std <0 || std >1) //Range da váriavel sentido
                         std = 3;
 
 
@@ -355,7 +355,7 @@ void checkMessages(uint8_t &std, uint8_t &velc, uint8_t &empty)
         return;
 
 }
-void isr0(void){
+void isr0(void){ //Interrupção que indica ou pacote enviado caso o módulo RF está no modo TX ou a recepção de um pacote caso o módulo RF esteja em RX
         if(rf69_state == M_RX)
         {
                 payload = 1;
@@ -370,14 +370,14 @@ void isr0(void){
 
 }
 
-void writeRegister(uint8_t address, uint8_t value){
+void writeRegister(uint8_t address, uint8_t value){ // função para escrever no registo
         digitalWrite(slavePin, LOW);
         SPI.transfer(SPI_WRITE | address);
         SPI.transfer(value);
         digitalWrite(slavePin,HIGH);
 }
 
-uint8_t readRegister(uint8_t address){
+uint8_t readRegister(uint8_t address){ // Função para ler um registo
         digitalWrite(slavePin, LOW);
         SPI.transfer(address & SPI_READ);
         uint8_t value = SPI.transfer(RegFifo);

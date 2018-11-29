@@ -12,7 +12,7 @@ SkyTraqNmeaParser parser;
 const GnssData* gdata;
 uint8_t gpsQ = 0;
 
-void initGPS()
+void initGPS() // confiuração para a leitura dos dados fornecido pelo módulo GPS
 {
   Serial1.begin(115200,SERIAL_8N1);
   pinMode(2, INPUT);
@@ -27,43 +27,28 @@ void getPosition(uint32_t &xt, uint32_t &yt, uint8_t &h, uint8_t &m, uint8_t &s,
     gdata = parser.GetGnssData();
     const GnssData& gnss = *gdata;
 
-        double lg2 =  gnss.GetLongitude();
-//        Serial.println(lg2);
-        double lat2 = gnss.GetLatitude();
-        /*  Serial.print(" - ");
-           Serial.print(lat2);
-           Serial.print(" , ");
-           Serial.print(lg2);
-           Serial.println();*/
-        lg2 = ((lg2*(-1))-8)*100000000;
+        double lg2 =  gnss.GetLongitude(); // longitude
+        double lat2 = gnss.GetLatitude(); // Latitude
+
+        lg2 = ((lg2*(-1))-8)*100000000; // Obter só as casas décimais para enviar.
         xt = uint32_t(lg2);
-        //    Serial.println(xt);
-          //Serial.print(xt);
-        //Serial.print(",");
 
-        lat2 = (lat2-40)*100000000;
+        lat2 = (lat2-40)*100000000; // Obter só as casas décimais para enviar
         yt = uint32_t(lat2);
-        //      Serial.println(yt);
-        //Serial.println(yt);
-        //  xt = ((x3-gnss.GetLongitude())/(x4-x3))*255;
-        //yt = ((y2-gnss.GetLatitude())/(y2-y1))*255;
 
+        h = gnss.GetHour(); // hora
+        s = gnss.GetMinute(); // minuto
+        m = gnss.GetSecond(); //Segundo
 
+        gpsst = gnss.GetQualitMode(); // Estado do módulo GPS
+        gpsQ = gpsst;
 
-        h = gnss.GetHour();
-        s = gnss.GetMinute();
-        m = gnss.GetSecond();
-        //  Serial.println();
-        //  Serial.print(m);
-        gpsst = gnss.GetQualitMode();
-         gpsQ = gpsst;
-
-        gpspeed = gnss.GetSpeedInKmHr();
+        gpspeed = gnss.GetSpeedInKmHr(); // Velocidade do estado GPS
 
 
 }
 
-  double gpsSpeed(void)
+  double gpsSpeed(void) // Velocidade do módulo GPS
 {
   gdata = parser.GetGnssData();
   const GnssData& gnss = *gdata;
@@ -71,7 +56,7 @@ void getPosition(uint32_t &xt, uint32_t &yt, uint8_t &h, uint8_t &m, uint8_t &s,
   return gnss.GetSpeedInKmHr();
 }
 
-void serialInterrupt()
+void serialInterrupt() //interrupção para ler os dados provenientes do módulo GPS
 {
 
         if(Serial1.available()>0)
@@ -81,6 +66,6 @@ void serialInterrupt()
 
 }
 
-uint8_t GPState(){
+uint8_t GPState(){ // ultimo estado registado no módulo GPS
    return gpsQ;
 }

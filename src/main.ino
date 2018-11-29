@@ -30,16 +30,13 @@ uint8_t sent; // sentido pretendido
 uint8_t car_state; //Estado actual do carro
 uint8_t gps_count = 0;
 int nRCV;
-uint8_t PairConclude = 0;
+//uint8_t PairConclude = 0;
 uint8_t empty;
 uint8_t count_timeout = 0;
 void setup() {
 // Serial- Debug
         //Serial.begin(115200);
         //while(!Serial);
-      //Serial.setTimeout(250);
-        //  attachInterrupt(digitalPinToInterrupt(1), serialInterrupt, CHANGE);
-        //Serial.print(";)");
 //Configurar SPI
         configSPI();
 
@@ -58,90 +55,30 @@ void setup() {
         configCar();
 // Verificar se o carro está bem configurado.
         //checkInitVoltage();
-// Check voltage ( falta fazer, divisor resistivo)
+// Check voltage ()
         //checkBattery();
-// Pair with another RF Transceiver (falta fazer)
-        /*  waiToReceive();
-           while(PairConclude != 1)
-           { Serial.println("HERE");
-            if(receiveDone() == 1)
-            {
-                    readMessage(velocidade,sent);
-                    if(velocidade == 0 && sent == 5)
-                    {
-                            PairConclude = 1;
-                            sendMessage(readVelocity(),sent);
-                    }
-            }}
-         */
-// Leds por este parametro2s para o utilizador externo verificar
-        //sendMessage(0x88,0x88);
+
+
+
 //Start Timer, para a máquina de estados.
-        Timer1.initialize(100000);         //100ms
+        Timer1.initialize(100000);         //Timer para a máquina de estados 100ms
         Timer1.attachInterrupt(PIDTimer);
-        initGPS();
-        //For UART interrupt
-//        Serial.println("HELLO=)");
+        initGPS(); //inicializar as variaveis para a leitura do módulo GPS
 }
 void loop(){
-
-      /*  while(PairConclude != 1)
-        {
-                if(receiveDone() == 1)
-                {
-                        readMessage(velocidade, sent,nRCV);
-                        //  Serial.println(nRCV);
-                        if(velocidade == 0 && nRCV ==1)
-                        {
-                                sendMessage(readVelocity(), car_state);
-                                PairConclude = 1;
-                        }
-                }
-        }
-/**//*
-        if(gps_conv == 0)
-        {
-          time_GPS = millis();
-          while((GPState() < 4 )|| millis() - time_GPS >= 360000);
-          {
-            if(receiveDone())
-            {
-                readMessage(velocidade, sent,nRCV);
-                sendMessage(readVelocity(), 0x06);
-            }
-          }
-          if(GPState() != 4)
-          {
-            time_GPS = millis();
-            while(gps_count >100|| millis() - time_GPS >= 360000);
-            {
-              if(receiveDone())
-              {
-                  readMessage(velocidade, sent,nRCV);
-                  sendMessage(readVelocity(), 0x06);
-                  if(GPState() == 4)
-                    gps_count+=1;
-                  else
-                    gps_count = 0;
-              }
-            }
-          }
-          gps_conv = 1;
-        }
-*/
 
         if(stateTimer == 1) //T=100ms entra na maquina de estados.
         {
                 switch (car_state) { //kickDog every time to Low
                   kickDog(1);
-                case 0x05:
+                case 0x05: //PID pelo módulo GPS
                         DynamicPID(velocidade);
                         break;
                 case 0x04: // Estado RUN
                            //  kickDog(0);
-                        if(PID(velocidade))
+                        if(PID(velocidade)) //PID pelo filto-passa-baixo
                           car_state = 0x05;
-                        // Calcula PID e coloca a tensao no acelerador
+
                         break;
                 case 0x03: // A espera que o carro pare - Trocar sentido se precisar - Estado transitivo entre RUN-PARK
                         if(waitToStop() == 1) // esperar que pare
@@ -149,7 +86,7 @@ void loop(){
                                 //    kickDog(0); // Se nao parar em 7s desliga o motor.
                                 changeSent(sent);// Mudar de Sentido se necessário
                                 startCar(); // Coloca no estado excitado again.
-                                while((millis()-ttt)<=3000) ; //Espera 1S para prosseguir
+                                while((millis()-ttt)<=3000) ; //Espera 3S para prosseguir só por segurança
                                 car_state =0x04; // Vai para o estado RUN
                                 resetPID();
                         }
@@ -163,7 +100,7 @@ void loop(){
                                 //  kickDog(0); // se nao estiver parado nao faz kick no watchdog.
                         }
                         break;
-                case 0x06:
+                case 0x06: // Este estado não é utilizado, objetivo: Esperar pela convergência do sistema GPS antes de iniciar ! basta colocar o estado inicial com o valor 0x06.
                       if(GPState()>=4)
                         car_state = 0x00;
                       else{
@@ -191,14 +128,13 @@ void loop(){
                 {
                     //Serial1.flush();
 
-                        checkMessages(sent, velocidade,empty); // leitura do fifo a velocidade vem dentro de parametros 0-100 e sentido 0 - para frente 1 - para tras
+                        checkMessages(sent, velocidade,empty); // leitura do fifo a velocidade vem dentro de parametros 0-30 e sentido 0 - para frente 1 - para tras
                          kickDog(0);
-                    if(car_state != 0x06){
+                    if(car_state != 0x06 ){ //apenas se colocar o estado 0x06 como inicial, ignora as mensagens recebidas pelo utilizador
                          if(velocidade == 0 || empty == 1 || sent >1)  //vel = 0 ou sentido diferente do desejado (garantia) estado inicial PARK
-                        {       // Serial.print("here");
+                        {
                                 breakCar(); // Parar o carro
                                 car_state = 0x00; //Mudar o estado actual para PARK
-
                         }
                         else{
                                 switch (sent)
@@ -235,7 +171,7 @@ void loop(){
                         //Serial.print(" velocidade: ");
                         //Serial.println(velocidade);
 
-                        if(ledState == 0)
+                        if(ledState == 0) // Pin13 é o LED do Arduino que indica que o programa está a decorrer
                                 digitalWrite(ledPin, HIGH);
                         else
                                 digitalWrite(ledPin,LOW);
@@ -243,16 +179,6 @@ void loop(){
                                 ledState = 1;
                         else
                                 ledState =0;
-
-
-                        //Serial1.flush();
-                        //Serial1.flush();
-                        // timer de leitura;
-                        //gdata = parser.GetGnssData();
-                        //const GnssData& gnss = *gdata;
-                        //Serial.print(gnss.GetLongitude(),15);
-                        //Serial.print(" ");
-                        //Serial.println(gnss.GetLatitude(),15);
 
                         ttime_vel = millis();
                 }
@@ -263,16 +189,14 @@ void loop(){
 
 
 
-void PIDTimer(void)
+void PIDTimer(void) //isr PID TIMER
 {
-//        Serial.print("yo");
         stateTimer = 1;
-//        Serial1.flush();
 }
 
-void initVariables(void)
+void initVariables(void) //função para colocar as variaveis iniciais
 {
         velocidade = 0; // 0 potencia
         sent = 3; //sem sentido especifico
-        car_state = 0x00; // PARK
+        car_state = 0x00; // PARK // colocar para o estado 0x06 para esperar pelo sinal GPS se prentender
 }
