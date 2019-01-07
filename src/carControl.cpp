@@ -25,6 +25,7 @@ float dErr;
 float lastErr = 0;
 float lastTime = 0;
 double Input,Output;
+double batt = 0;
 
 unsigned int out = 0;
 
@@ -90,7 +91,7 @@ uint8_t PID(uint8_t &v)
         if(Output > 2600) // Wind-up
                 Output = 2600;
         else if(Output<1120)
-                Output = 880;
+                Output = 720;
 
         out = (int) Output;
 
@@ -134,7 +135,7 @@ uint8_t DynamicPID(uint8_t &v)
   if(Output > 2600)
           Output = 2600;
   else if(Output<1120)
-          Output = 880;
+          Output = 720;
 
   out = (int) Output;
 
@@ -178,13 +179,13 @@ uint8_t waitToStop() // Esperar até que a velocidade lida por parte do filtro p
         if((analogRead(A0)*5.0/1024.0) <= 0.07)
                 return 1;
         else{
-                setVoltage(880);
+                setVoltage(720);
                 return 0;
               }
 }
 uint8_t breakCar() // colocar 0 potência no carro
 {
-        setVoltage(880);
+        setVoltage(720);
         return 1;
 }
 
@@ -230,15 +231,19 @@ uint8_t configCar() //configuração do pinos arduino para o carro
 
         pinMode(A0,INPUT);//Leitura da velocidade
         pinMode(A1,INPUT); // Leitura dos valores bateria
+        pinMode(A2,INPUT);
         //excitação do acelarador
-        setVoltage(880);
+        setVoltage(720);
 
         return 1;
 }
 
 uint8_t bateryState() // Leitura das baterias
 {
-    return (  (((analogRead(A1)/1024)*5)*13)/65)*100;
+    batt = analogRead(A1);
+    batt = (batt/1024.0)*5.0*13.57616;
+
+    return (uint8_t)batt;
 }
 
 

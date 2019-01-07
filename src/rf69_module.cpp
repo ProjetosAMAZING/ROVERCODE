@@ -248,9 +248,9 @@ void sendMessage(uint8_t vel, uint8_t car_state) // Envio de um pacote
                 SPI.transfer(s); // segundo
                 SPI.transfer(gpspeed); // Velocidae do GPS
                 SPI.transfer(gpsst); // Estado do módulo GPS
-                SPI.transfer(61);
-                //SPI.transfer(bateryState());//Estado das baterias.
-
+                //SPI.transfer();
+                SPI.transfer(bateryState());//Estado das baterias.
+                //SPI.transfer(18);
                 digitalWrite(slavePin, HIGH);
         }
 
